@@ -11,4 +11,5 @@ input_images = args.input_imgs
 print("Input images:\n\t" + "\n\t".join(map(str, input_images)))
 
 neg = negative.from_path(input_images[0])
-neg.find_holes()
+neg = negative.fully_process_neg(neg)
+neg.show()
