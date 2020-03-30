@@ -37,7 +37,22 @@ class Negative:
 
 #        contours = imutils.grab_contours(contours)
 
-        for c in contours:
+        contour_areas = np.array([cv2.contourArea(c) for c in contours])
+#        plt.hist(contour_areas)
+#        plt.show()
+        max_dist = 100
+        median = np.median(contour_areas)
+        filter_list = np.array([np.abs(ca-median) < max_dist for ca in contour_areas])
+        print(contour_areas)
+        print(contour_areas[filter_list])
+
+        # TODO: Film hole counts will probably be somewhere between 6 and 20
+        # Thus, we want to find 6-20 contours with similar areas, and disgard other contours
+        # Afterwards we calculate centers, and return that
+
+        contours = np.array(contours)
+
+        for c in contours[filter_list]:
             # compute the center of the contour
             M = cv2.moments(c)
             cX = int(M["m10"] / M["m00"])
