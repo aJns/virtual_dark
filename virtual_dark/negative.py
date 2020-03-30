@@ -55,6 +55,9 @@ class Negative:
         cX = np.array(cX)
         b, m = np.polyfit(cX, cY, 1)
 
+        rot_deg = np.rad2deg(np.arcsin(b))
+        print("Angle: ", rot_deg)
+
 #        print("line: ", b + m * cX)
 #        print("cX: ", cX, "b: ", b, "m: ", m)
 
@@ -75,8 +78,11 @@ class Negative:
         p2 = fitted_line[-1]
         cv2.line(contour_im, p1, p2, (0, 0, 255), 2)
 
+        rotated = imutils.rotate(contour_im, rot_deg)
+
         cv2.imshow("Threshold image", thresh)
         cv2.imshow("Contours", contour_im)
+        cv2.imshow("Rotated", rotated) # Works, fuck yeah
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
