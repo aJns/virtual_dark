@@ -25,7 +25,7 @@ class Negative:
 
     def find_holes(self):
         """ Find the holes in the filmstrip """
-        threshold_val = 240
+        threshold_val = 220
         resized = imutils.resize(self.image, width=1000)
         gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         blurred = cv2.blur(gray, (5, 5))
@@ -35,7 +35,20 @@ class Negative:
         contour_im = resized.copy()
         cv2.drawContours(contour_im, contours, -1, (0, 255, 0), 3)
 
-        cv2.imshow("image", contour_im)
+#        contours = imutils.grab_contours(contours)
+
+        for c in contours:
+            # compute the center of the contour
+            M = cv2.moments(c)
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            # draw the contour and center of the shape on the image
+            cv2.circle(contour_im, (cX, cY), 7, (255, 0, 255), -1)
+            cv2.putText(contour_im, "center", (cX - 20, cY - 20),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+        cv2.imshow("Threshold image", thresh)
+        cv2.imshow("Contours", contour_im)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 #        plt.imshow(resized)
