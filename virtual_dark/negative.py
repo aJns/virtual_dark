@@ -85,3 +85,11 @@ def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
     slope, _ = fit_line_through_holes(centers)
     return negative.rotate_according_to_slope(slope)
+
+
+def white_balance_correction(whiteRGB: (int, int, int), pixel: np.array) -> np.array:
+    lum = sum(whiteRGB) / 3
+    imgR = pixel[0] * lum / whiteRGB[0]
+    imgG = pixel[1] * lum / whiteRGB[1]
+    imgB = pixel[2] * lum / whiteRGB[2]
+    return np.array([imgR, imgG, imgB])
