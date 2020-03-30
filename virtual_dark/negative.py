@@ -35,37 +35,52 @@ class Negative:
         contour_im = resized.copy()
         cv2.drawContours(contour_im, contours, -1, (0, 255, 0), 3)
 
-#        contours = imutils.grab_contours(contours)
+        #        contours = imutils.grab_contours(contours)
 
         contour_areas = np.array([cv2.contourArea(c) for c in contours])
-#        plt.hist(contour_areas)
-#        plt.show()
+        #        plt.hist(contour_areas)
+        #        plt.show()
         max_dist = 100
         median = np.median(contour_areas)
-        filter_list = np.array([np.abs(ca-median) < max_dist for ca in contour_areas])
-        print(contour_areas)
-        print(contour_areas[filter_list])
-
-        # TODO: Film hole counts will probably be somewhere between 6 and 20
-        # Thus, we want to find 6-20 contours with similar areas, and disgard other contours
-        # Afterwards we calculate centers, and return that
+        filter_list = np.array([np.abs(ca - median) < max_dist for ca in contour_areas])
+        #        print(contour_areas)
+        #        print(contour_areas[filter_list])
 
         contours = np.array(contours)
 
-        for c in contours[filter_list]:
-            # compute the center of the contour
-            M = cv2.moments(c)
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
+        centers = map(get_contour_center, contours[filter_list])
+        centers = sorted(centers, key=lambda x: x[0])
+
+        cX, cY = map(list, zip(*centers))
+        cX = np.array(cX)
+        b, m = np.polyfit(cX, cY, 1)
+
+#        print("line: ", b + m * cX)
+#        print("cX: ", cX, "b: ", b, "m: ", m)
+
+        #        plt.plot(cX, cY, '.')
+        #        plt.plot(cX, m+b*cX, '-')
+        #        plt.show()
+
+        fitted_line = [(int(x), int(m + b * x)) for x in cX]
+
+        for c in centers:
+            cX, cY = c
             # draw the contour and center of the shape on the image
             cv2.circle(contour_im, (cX, cY), 7, (255, 0, 255), -1)
             cv2.putText(contour_im, "center", (cX - 20, cY - 20),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+        p1 = fitted_line[0]
+        p2 = fitted_line[-1]
+        cv2.line(contour_im, p1, p2, (0, 0, 255), 2)
 
         cv2.imshow("Threshold image", thresh)
         cv2.imshow("Contours", contour_im)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+
 #        plt.imshow(resized)
 #        plt.show()
 
@@ -73,3 +88,10 @@ class Negative:
 def from_path(filepath: str) -> Negative:
     with rawpy.imread(filepath) as raw:
         return Negative(raw.postprocess())
+
+
+def get_contour_center(contour):
+    M = cv2.moments(contour)
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+    return cX, cY
