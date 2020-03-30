@@ -61,8 +61,21 @@ class Negative:
         rotated = imutils.rotate(self.image, rot_deg)
         return Negative(rotated)
 
-    def correct_with_white_point(self, white_point):
-        return self
+    def color_correct(self, divisors: (float, float, float)):
+        shape = self.image.shape
+        corrected = np.zeros(shape)
+
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                pixel = self.image[i, j, :]
+                pixel = white_balance_correction(divisors, pixel)
+                corrected[i, j, :] = pixel
+
+                curr_pixel = i*shape[1]+j
+                if curr_pixel % 1000 == 0:
+                    print("At pixel:", curr_pixel, "/", shape[0]*shape[1], "{}%".format(curr_pixel/(shape[0]*shape[1])))
+
+        return Negative(corrected)
 
 
 def from_path(filepath: str) -> Negative:
@@ -85,7 +98,22 @@ def fit_line_through_holes(holes: [(float, float)]) -> (float, float):
 
 
 def calc_film_white_point(hole_centers) -> (int, int, int):
+    #lum = sum(whiteRGB) / 3
+    #imgR = pixel[0] * lum / whiteRGB[0]
+    #imgG = pixel[1] * lum / whiteRGB[1]
+    #imgB = pixel[2] * lum / whiteRGB[2]
     return 255, 255, 255
+
+
+def white_balance_correction(divisors: (int, int, int), pixel: np.array) -> np.array:
+    # TODO: OKAY, get the divisors for each color
+    # TODO: then create a numpy array w*h*c, but instead of RGB the last dimension has the divisors
+    # TODO: DIVIDE
+    lum = sum(whiteRGB) / 3
+    imgR = pixel[0] * lum / whiteRGB[0]
+    imgG = pixel[1] * lum / whiteRGB[1]
+    imgB = pixel[2] * lum / whiteRGB[2]
+    return np.array([imgR, imgG, imgB])
 
 
 def fully_process_neg(negative) -> Negative:
@@ -95,11 +123,3 @@ def fully_process_neg(negative) -> Negative:
     rotated = negative.rotate_according_to_slope(slope)
     color_corrected = rotated.correct_with_white_point(white_point)
     return color_corrected
-
-
-def white_balance_correction(whiteRGB: (int, int, int), pixel: np.array) -> np.array:
-    lum = sum(whiteRGB) / 3
-    imgR = pixel[0] * lum / whiteRGB[0]
-    imgG = pixel[1] * lum / whiteRGB[1]
-    imgB = pixel[2] * lum / whiteRGB[2]
-    return np.array([imgR, imgG, imgB])
