@@ -61,6 +61,9 @@ class Negative:
         rotated = imutils.rotate(self.image, rot_deg)
         return Negative(rotated)
 
+    def correct_with_white_point(self, white_point):
+        return self
+
 
 def from_path(filepath: str) -> Negative:
     with rawpy.imread(filepath) as raw:
@@ -81,10 +84,17 @@ def fit_line_through_holes(holes: [(float, float)]) -> (float, float):
     return slope, offset
 
 
+def calc_film_white_point(hole_centers) -> (int, int, int):
+    return 255, 255, 255
+
+
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
+    white_point = calc_film_white_point(centers)
     slope, _ = fit_line_through_holes(centers)
-    return negative.rotate_according_to_slope(slope)
+    rotated = negative.rotate_according_to_slope(slope)
+    color_corrected = rotated.correct_with_white_point(white_point)
+    return color_corrected
 
 
 def white_balance_correction(whiteRGB: (int, int, int), pixel: np.array) -> np.array:
