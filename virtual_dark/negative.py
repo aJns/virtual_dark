@@ -152,9 +152,9 @@ def get_halfway_point(p1, p2):
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
 
-    negative = negative.change_channel_level([2], 1.5)
+#    negative = negative.change_channel_level([2], 1.5)
 
-    negative.plot_channel_histogram()
+#    negative.plot_channel_histogram()
 
     white_point = negative.calc_film_white_point(centers)
 
