@@ -16,7 +16,15 @@ input_images = [item for sublist in input_images for item in sublist] # flatten
 
 print("Input images:\n\t" + "\n\t".join(map(str, input_images)))
 
+#input_images = [input_images[0]]
+
+total_images = len(input_images)
+curr_image = 1
+
 for image in input_images:
+    print("Processing: {}".format(image), "{}/{} images".format(curr_image, total_images))
     neg = negative.from_path(image)
     neg = negative.fully_process_neg(neg)
-    neg.show()
+    neg.save_to_dir("output")
+    curr_image += 1
+#    neg.show()

@@ -1,10 +1,15 @@
-from time import sleep
+from __future__ import annotations
 
+import os
+from pathlib import Path
+
+import cv2
 import imutils as imutils
+import matplotlib.pyplot as plt
 import numpy as np
 import rawpy
-import matplotlib.pyplot as plt
-import cv2
+
+from PIL import Image
 
 
 class Negative:
@@ -15,7 +20,8 @@ class Negative:
     color info
     """
 
-    def __init__(self, image: np.ndarray):
+    def __init__(self, image: np.ndarray, name: str):
+        self.name = name
         self.image = image
 
     def get_debug_image(self):
@@ -27,17 +33,29 @@ class Negative:
 
         return image2show.copy()
 
-    def show(self):
-        cv2.imshow("Image", self.get_debug_image())
-        cv2.waitKey()
-        cv2.destroyAllWindows()
+    def show(self, waitKey=True):
+        cv2.imshow(self.name, self.get_debug_image())
 
-    def plot_channel_histogram(self):
+        if waitKey:
+            cv2.waitKey()
+            cv2.destroyAllWindows()
+
+    def plot_channel_histogram(self, show=True):
+        bins = 255
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-        ax1.hist(np.ravel(self.image[:, :, 0]))
-        ax2.hist(np.ravel(self.image[:, :, 1]))
-        ax3.hist(np.ravel(self.image[:, :, 2]))
-        plt.show()
+        ax1.hist(np.ravel(self.image[:, :, 0]), bins=bins)
+        ax2.hist(np.ravel(self.image[:, :, 1]), bins=bins)
+        ax3.hist(np.ravel(self.image[:, :, 2]), bins=bins)
+
+        if show:
+            plt.show()
+
+    def save_to_dir(self, dir):
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
+        im = Image.fromarray(self.image)
+        im.save(os.path.join(dir, self.name + ".tiff"))
 
     def find_holes(self):
         """ Find the holes in the filmstrip
@@ -66,10 +84,10 @@ class Negative:
 
         return centers
 
-    def rotate_according_to_slope(self, slope):
+    def rotate_according_to_slope(self, slope) -> Negative:
         rot_deg = np.rad2deg(np.arcsin(slope))
         rotated = imutils.rotate(self.image, rot_deg)
-        return Negative(rotated)
+        return Negative(rotated, self.name + "-rotated")
 
     def calc_film_white_point(self, hole_centers) -> (int, int, int):
         pts = []
@@ -93,7 +111,7 @@ class Negative:
 
         return white_point
 
-    def correct_with_white_point(self, whiteRGB: (int, int, int)):
+    def correct_with_white_point(self, whiteRGB: (int, int, int)) -> Negative:
         w, h, _ = self.image.shape
         shape = (w, h)
 
@@ -110,23 +128,24 @@ class Negative:
 
         corrected = np.multiply(self.image, mult_array).astype(np.uint8)
 
-        return Negative(corrected)
+        return Negative(corrected, self.name + "-corrected")
 
-    def change_channel_level(self, channels, mult):
+    def change_channel_level(self, channels, mult) -> Negative:
         image = self.image.copy()
         for i in channels:
             image[:, :, i] = np.clip((mult * image[:, :, i]).astype(np.uint8), 0, 255).astype(np.uint8)
-        return Negative(image)
+        return Negative(image, self.name + "-level_changed")
 
-    def invert(self):
+    def invert(self) -> Negative:
         inverted = 255 - self.image
 
-        return Negative(inverted)
+        return Negative(inverted, self.name + "-inverted")
 
 
 def from_path(filepath: str) -> Negative:
     with rawpy.imread(filepath) as raw:
-        return Negative(raw.postprocess())
+        name = Path(filepath).stem
+        return Negative(raw.postprocess(), name)
 
 
 def get_contour_center(contour):
@@ -152,16 +171,13 @@ def get_halfway_point(p1, p2):
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
 
-#    negative = negative.change_channel_level([2], 1.5)
-
-#    negative.plot_channel_histogram()
-
     white_point = negative.calc_film_white_point(centers)
 
     slope, _ = fit_line_through_holes(centers)
     rotated = negative.rotate_according_to_slope(slope)
 
     color_corrected = rotated.correct_with_white_point(white_point)
+
     inverted = color_corrected.invert()
 
     return inverted
