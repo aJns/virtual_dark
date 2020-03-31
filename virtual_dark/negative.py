@@ -32,6 +32,13 @@ class Negative:
         cv2.waitKey()
         cv2.destroyAllWindows()
 
+    def plot_channel_histogram(self):
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+        ax1.hist(np.ravel(self.image[:, :, 0]))
+        ax2.hist(np.ravel(self.image[:, :, 1]))
+        ax3.hist(np.ravel(self.image[:, :, 2]))
+        plt.show()
+
     def find_holes(self):
         """ Find the holes in the filmstrip
         TODO: Should probably clean this up a bit more, kind of a lot of stuff here
@@ -83,7 +90,6 @@ class Negative:
         b_m = np.median(b)
 
         white_point = r_m, g_m, b_m
-        print("White point:", white_point)
 
         return white_point
 
@@ -105,6 +111,12 @@ class Negative:
         corrected = np.multiply(self.image, mult_array).astype(np.uint8)
 
         return Negative(corrected)
+
+    def change_channel_level(self, channels, mult):
+        image = self.image.copy()
+        for i in channels:
+            image[:, :, i] = np.clip((mult * image[:, :, i]).astype(np.uint8), 0, 255).astype(np.uint8)
+        return Negative(image)
 
     def invert(self):
         inverted = 255 - self.image
@@ -139,11 +151,19 @@ def get_halfway_point(p1, p2):
 
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
+
+    negative = negative.change_channel_level([2], 1.5)
+
+    negative.plot_channel_histogram()
+
     white_point = negative.calc_film_white_point(centers)
+
     slope, _ = fit_line_through_holes(centers)
     rotated = negative.rotate_according_to_slope(slope)
+
     color_corrected = rotated.correct_with_white_point(white_point)
     inverted = color_corrected.invert()
+
     return inverted
 
 
