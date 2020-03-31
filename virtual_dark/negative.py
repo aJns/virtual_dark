@@ -18,14 +18,17 @@ class Negative:
     def __init__(self, image: np.ndarray):
         self.image = image
 
-    def show(self):
+    def get_debug_image(self):
         image2show = self.image
         max_width = 1000
 
         if np.ma.size(self.image, 0) > max_width:
             image2show = imutils.resize(self.image, width=1000)
 
-        cv2.imshow("Image", image2show)
+        return image2show.copy()
+
+    def show(self):
+        cv2.imshow("Image", self.get_debug_image())
         cv2.waitKey()
         cv2.destroyAllWindows()
 
@@ -61,21 +64,52 @@ class Negative:
         rotated = imutils.rotate(self.image, rot_deg)
         return Negative(rotated)
 
-    def color_correct(self, divisors: (float, float, float)):
-        shape = self.image.shape
-        corrected = np.zeros(shape)
+    def calc_film_white_point(self, hole_centers) -> (int, int, int):
+        pts = []
 
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                pixel = self.image[i, j, :]
-                pixel = white_balance_correction(divisors, pixel)
-                corrected[i, j, :] = pixel
+        for i in range(len(hole_centers) - 1):
+            p1 = hole_centers[i]
+            p2 = hole_centers[i + 1]
+            pts.append(get_halfway_point(p1, p2))
 
-                curr_pixel = i*shape[1]+j
-                if curr_pixel % 1000 == 0:
-                    print("At pixel:", curr_pixel, "/", shape[0]*shape[1], "{}%".format(curr_pixel/(shape[0]*shape[1])))
+        pts = [(int(x), int(y)) for x, y in pts]
+
+        pixels = [self.image[x, y, :] for x, y in pts]
+
+        r, g, b = zip(*pixels)
+
+        r_m = np.median(r)
+        g_m = np.median(g)
+        b_m = np.median(b)
+
+        white_point = r_m, g_m, b_m
+        print("White point:", white_point)
+
+        return white_point
+
+    def correct_with_white_point(self, whiteRGB: (int, int, int)):
+        w, h, _ = self.image.shape
+        shape = (w, h)
+
+        lum = sum(whiteRGB) / 3
+        multR = lum / whiteRGB[0]
+        multG = lum / whiteRGB[1]
+        multB = lum / whiteRGB[2]
+
+        r_chan = np.full(shape, multR, dtype=np.float32)
+        g_chan = np.full(shape, multG, dtype=np.float32)
+        b_chan = np.full(shape, multB, dtype=np.float32)
+
+        mult_array = np.dstack((r_chan, g_chan, b_chan))
+
+        corrected = np.multiply(self.image, mult_array).astype(np.uint8)
 
         return Negative(corrected)
+
+    def invert(self):
+        inverted = 255 - self.image
+
+        return Negative(inverted)
 
 
 def from_path(filepath: str) -> Negative:
@@ -97,29 +131,41 @@ def fit_line_through_holes(holes: [(float, float)]) -> (float, float):
     return slope, offset
 
 
-def calc_film_white_point(hole_centers) -> (int, int, int):
-    #lum = sum(whiteRGB) / 3
-    #imgR = pixel[0] * lum / whiteRGB[0]
-    #imgG = pixel[1] * lum / whiteRGB[1]
-    #imgB = pixel[2] * lum / whiteRGB[2]
-    return 255, 255, 255
-
-
-def white_balance_correction(divisors: (int, int, int), pixel: np.array) -> np.array:
-    # TODO: OKAY, get the divisors for each color
-    # TODO: then create a numpy array w*h*c, but instead of RGB the last dimension has the divisors
-    # TODO: DIVIDE
-    lum = sum(whiteRGB) / 3
-    imgR = pixel[0] * lum / whiteRGB[0]
-    imgG = pixel[1] * lum / whiteRGB[1]
-    imgB = pixel[2] * lum / whiteRGB[2]
-    return np.array([imgR, imgG, imgB])
+def get_halfway_point(p1, p2):
+    x = p1[0] + (p2[0] - p1[0]) / 2
+    y = p1[1] + (p2[1] - p1[1]) / 2
+    return x, y
 
 
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
-    white_point = calc_film_white_point(centers)
+    white_point = negative.calc_film_white_point(centers)
     slope, _ = fit_line_through_holes(centers)
     rotated = negative.rotate_according_to_slope(slope)
     color_corrected = rotated.correct_with_white_point(white_point)
-    return color_corrected
+    inverted = color_corrected.invert()
+    return inverted
+
+
+def debug_draw_pts(negative, pts, label=""):
+    img = negative.get_debug_image()
+    radius = 4
+    color = (255, 0, 255)
+
+    for center in pts:
+        cv2.circle(img, center, radius, color, thickness=-1)
+
+    if label != "":
+        debug_draw_text(img, label)
+
+    cv2.imshow("Debug", img)
+    cv2.waitKey(0)
+    cv2.destroyWindow("Debug")
+
+
+def debug_draw_text(image, text, text_orig=(100, 100)):
+    color = (255, 0, 255)
+    thickness = 1
+    scale = 1
+    cv2.putText(image, text, text_orig,
+                cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
