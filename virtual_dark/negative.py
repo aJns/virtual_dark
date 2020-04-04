@@ -54,7 +54,7 @@ class Negative:
         if not os.path.exists(dir):
             os.makedirs(dir)
 
-        im = Image.fromarray(self.image)
+        im = Image.fromarray(np.clip(self.image, 0, 255))
         im.save(os.path.join(dir, self.name + ".tiff"))
 
     def find_holes(self):
@@ -126,7 +126,7 @@ class Negative:
 
         mult_array = np.dstack((r_chan, g_chan, b_chan))
 
-        corrected = np.multiply(self.image, mult_array).astype(np.uint8)
+        corrected = np.clip(np.multiply(self.image, mult_array), 0, 255).astype(np.uint8)
 
         return Negative(corrected, self.name + "-corrected")
 
