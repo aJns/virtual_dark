@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from virtual_dark import copypasted
+
 import cv2
 import imutils as imutils
 import matplotlib.pyplot as plt
@@ -84,14 +86,15 @@ class Negative:
 
         return centers
 
+    def rotate_degrees(self, rot_deg):
+        rotated = copypasted.rotate_image(self.image, rot_deg)
+        return Negative(rotated, self.name)
+
     def rotate_according_to_slope(self, slope) -> Negative:
-        rot_deg = -90  # 90 degrees is the default, because invalid slopes tend to arise when the pic is vertical
-        # TODO: Maybe we could try flipping it 90 degrees, and recalculating the slope?
         if slope > 1 or slope < -1:
-            print("Invalid slope: {}".format(slope))
-        else:
-            rot_deg = np.rad2deg(np.arcsin(slope))
-        rotated = imutils.rotate(self.image, rot_deg)
+            raise ValueError("Slope has invalid value: {}".format(slope))
+        rot_deg = np.rad2deg(np.arcsin(slope))
+        rotated = copypasted.rotate_image(self.image, rot_deg)
         return Negative(rotated, self.name + "-rotated")
 
     def calc_film_white_point(self, hole_centers) -> (int, int, int):
@@ -179,7 +182,13 @@ def fully_process_neg(negative) -> Negative:
     white_point = negative.calc_film_white_point(centers)
 
     slope, _ = fit_line_through_holes(centers)
-    rotated = negative.rotate_according_to_slope(slope)
+    if slope < -1 or slope > 1:
+        rot90 = negative.rotate_degrees(-90)
+        centers90 = rot90.find_holes()
+        slope, _ = fit_line_through_holes(centers90)
+        rotated = rot90.rotate_according_to_slope(slope)
+    else:
+        rotated = negative.rotate_according_to_slope(slope)
 
     color_corrected = rotated.correct_with_white_point(white_point)
 
