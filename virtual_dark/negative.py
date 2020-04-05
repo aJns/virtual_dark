@@ -85,7 +85,12 @@ class Negative:
         return centers
 
     def rotate_according_to_slope(self, slope) -> Negative:
-        rot_deg = np.rad2deg(np.arcsin(slope))
+        rot_deg = -90  # 90 degrees is the default, because invalid slopes tend to arise when the pic is vertical
+        # TODO: Maybe we could try flipping it 90 degrees, and recalculating the slope?
+        if slope > 1 or slope < -1:
+            print("Invalid slope: {}".format(slope))
+        else:
+            rot_deg = np.rad2deg(np.arcsin(slope))
         rotated = imutils.rotate(self.image, rot_deg)
         return Negative(rotated, self.name + "-rotated")
 
