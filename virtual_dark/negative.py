@@ -128,13 +128,14 @@ class Negative:
         multG = lum / whiteRGB[1]
         multB = lum / whiteRGB[2]
 
-        r_chan = np.full(shape, multR, dtype=np.float32)
-        g_chan = np.full(shape, multG, dtype=np.float32)
-        b_chan = np.full(shape, multB, dtype=np.float32)
+        r_chan = np.full(shape, multR, dtype=np.float16)
+        g_chan = np.full(shape, multG, dtype=np.float16)
+        b_chan = np.full(shape, multB, dtype=np.float16)
 
         mult_array = np.dstack((r_chan, g_chan, b_chan))
+        del r_chan, g_chan, b_chan
 
-        corrected = np.clip(np.multiply(self.image, mult_array), 0, 255).astype(np.uint8)
+        corrected = np.multiply(self.image, mult_array).clip(0, 255).astype(np.uint8)
 
         return Negative(corrected, self.name + "-corrected")
 
@@ -189,10 +190,13 @@ def fully_process_neg(negative) -> Negative:
         rotated = rot90.rotate_according_to_slope(slope)
     else:
         rotated = negative.rotate_according_to_slope(slope)
+    del negative
 
     color_corrected = rotated.correct_with_white_point(white_point)
+    del rotated
 
     inverted = color_corrected.invert()
+    del color_corrected
 
     return inverted
 
