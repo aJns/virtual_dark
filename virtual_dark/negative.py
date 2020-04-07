@@ -25,6 +25,8 @@ class Negative:
     def __init__(self, image: np.ndarray, name: str):
         self.name = name
         self.image = image
+        self.reduced_w = None
+        self.reduced_h = None
 
     def get_debug_image(self):
         image2show = self.image
@@ -52,6 +54,10 @@ class Negative:
         if show:
             plt.show()
 
+    def get_resize_ratios(self):
+        h, w, _ = self.image.shape
+        return h / self.reduced_h, w / self.reduced_w
+
     def save_to_dir(self, dir):
         if not os.path.exists(dir):
             os.makedirs(dir)
@@ -65,6 +71,8 @@ class Negative:
         """
         threshold_val = 220
         resized = imutils.resize(self.image, width=1000)
+        self.reduced_h, self.reduced_w, _ = resized.shape
+
         gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         blurred = cv2.blur(gray, (5, 5))
         thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY)[1]
@@ -105,18 +113,34 @@ class Negative:
             p2 = hole_centers[i + 1]
             pts.append(get_halfway_point(p1, p2))
 
-        pts = [(int(x), int(y)) for x, y in pts]
+        r_h, r_w = self.get_resize_ratios()
+        pts = [(int(y * r_h), int(x * r_w)) for y, x in pts]
 
-        pixels = [self.image[x, y, :] for x, y in pts]
+        sw = 5  # Sample width/2
+
+        pixels = [self.image[y - sw:y + sw, x - sw:x + sw, :] for x, y in pts]
+        pixels = np.stack(pixels)
+        n, r, c, _ = pixels.shape
+
+        #for image_area in pixels:
+        #    cv2.imshow("Debug", image_area)
+        #    cv2.waitKey(0)
+        #    cv2.destroyWindow("Debug")
+
+        pixels = pixels.reshape(n * r * c, 3)
 
         r, g, b = zip(*pixels)
 
         r_m = np.median(r)
         g_m = np.median(g)
         b_m = np.median(b)
+        # r_m = np.mean(r)
+        # g_m = np.mean(g)
+        # b_m = np.mean(b)
 
         white_point = r_m, g_m, b_m
 
+        # white_point = (171.5, 62.0, 26.0) # A pretty good val
         return white_point
 
     def correct_with_white_point(self, whiteRGB: (int, int, int)) -> Negative:
@@ -181,6 +205,7 @@ def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
 
     white_point = negative.calc_film_white_point(centers)
+    print("white_point:", white_point)
 
     slope, _ = fit_line_through_holes(centers)
     if slope < -1 or slope > 1:
@@ -206,8 +231,8 @@ def debug_draw_pts(negative, pts, label=""):
     radius = 4
     color = (255, 0, 255)
 
-    for center in pts:
-        cv2.circle(img, center, radius, color, thickness=-1)
+    for p in pts:
+        cv2.circle(img, p, radius, color, thickness=-1)
 
     if label != "":
         debug_draw_text(img, label)
