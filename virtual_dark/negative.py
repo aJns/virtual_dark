@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numbers
 import os
 from pathlib import Path
 
@@ -29,17 +30,24 @@ class Negative:
         self.reduced_h = None
 
     def get_debug_image(self):
-        image2show = self.image
+        image2show = self.image.copy()
         max_width = 1000
 
         if np.ma.size(self.image, 0) > max_width:
-            image2show = imutils.resize(self.image, width=1000)
+            image2show = imutils.resize(self.image, width=1000).copy()
+            self.reduced_h, self.reduced_w, _ = image2show.shape
 
-        return image2show.copy()
+        r, g, b = cv2.split(image2show)
+        image2show = cv2.merge((b, g, r))
 
-    def show(self):
-        plt.imshow(self.get_debug_image())
-        plt.show()
+        return image2show
+
+    def show(self, waitKey=True):
+        cv2.imshow(self.name, self.get_debug_image())
+
+        if waitKey:
+            cv2.waitKey()
+            cv2.destroyAllWindows()
 
     def plot_channel_histogram(self, show=True):
         bins = 255
@@ -153,6 +161,33 @@ class Negative:
 
         corrected = np.multiply(self.image, mult_array).clip(0, 255).astype(np.uint8)
 
+        return Negative(corrected, self.name + "-color_balanced")
+
+    Num = numbers.Number
+    NumRange = (Num, Num)
+    Rect = (int, int, int, int)  # x, y, w, h
+
+    def get_color_ranges_in_area(self, area: Rect) -> (NumRange, NumRange, NumRange):
+        x, y, w, h = area
+        image_area = self.image[x:x + w, y:y + h, :]
+
+        red_range = (image_area[:, :, 0].min(), image_area[:, :, 0].max())
+        green_range = (image_area[:, :, 1].min(), image_area[:, :, 1].max())
+        blue_range = (image_area[:, :, 2].min(), image_area[:, :, 2].max())
+
+        print("Red range: {}\nGreen range: {}\nBlue range: {}".format(red_range, green_range, blue_range))
+
+        return red_range, green_range, blue_range
+
+    def correct_color_curves(self, red_range: NumRange, green_range: NumRange, blue_range: NumRange) -> Negative:
+        img_range = (0, 255)
+
+        red = maprange(self.image[:, :, 0], red_range, img_range).astype(np.uint8)
+        green = maprange(self.image[:, :, 1], green_range, img_range).astype(np.uint8)
+        blue = maprange(self.image[:, :, 2], blue_range, img_range).astype(np.uint8)
+
+        corrected = np.dstack((red, green, blue)).astype(np.uint8)
+
         return Negative(corrected, self.name + "-corrected")
 
     def change_channel_level(self, channels, mult) -> Negative:
@@ -193,11 +228,16 @@ def get_halfway_point(p1, p2):
     return x, y
 
 
+def maprange(s, a, b):
+    (a1, a2), (b1, b2) = a, b
+    return b1 + (s - a1) * ((b2 - b1) / (a2 - a1))
+
+
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
 
-    white_point = negative.calc_film_white_point(centers)
-    print("white_point:", white_point)
+    #    white_point = negative.calc_film_white_point(centers)
+    #    print("white_point:", white_point)
 
     slope, _ = fit_line_through_holes(centers)
     if slope < -1 or slope > 1:
@@ -209,7 +249,14 @@ def fully_process_neg(negative) -> Negative:
         rotated = negative.rotate_according_to_slope(slope)
     del negative
 
-    color_corrected = rotated.correct_with_white_point(white_point)
+    debug_im = rotated.get_debug_image()
+    rect = (1200, 850, 2300, 1850)
+    x, y, w, h = rect
+    hr, wr = rotated.get_resize_ratios()
+    resized_rect = int(x/wr), int(y/hr), int(w/wr), int(h/hr)
+    debug_draw_rect(debug_im, resized_rect)
+    rr, gr, br = rotated.get_color_ranges_in_area(rect)
+    color_corrected = rotated.correct_color_curves(rr, gr, br)
     del rotated
 
     inverted = color_corrected.invert()
@@ -240,6 +287,19 @@ def debug_draw_text(image, text, text_orig=(100, 100)):
     scale = 1
     cv2.putText(image, text, text_orig,
                 cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+
+
+def debug_draw_rect(image, rect):
+    color = (255, 0, 255)
+    thickness = 1
+    x, y, w, h = rect
+    p1 = x, y
+    p2 = x + w, y + h
+    cv2.rectangle(image, p1, p2, color, thickness)
+
+    cv2.imshow("Debug", image)
+    cv2.waitKey(0)
+    cv2.destroyWindow("Debug")
 
 
 def show_image_areas(areas, n):
