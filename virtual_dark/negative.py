@@ -37,12 +37,9 @@ class Negative:
 
         return image2show.copy()
 
-    def show(self, waitKey=True):
-        cv2.imshow(self.name, self.get_debug_image())
-
-        if waitKey:
-            cv2.waitKey()
-            cv2.destroyAllWindows()
+    def show(self):
+        plt.imshow(self.get_debug_image())
+        plt.show()
 
     def plot_channel_histogram(self, show=True):
         bins = 255
@@ -116,16 +113,11 @@ class Negative:
         r_h, r_w = self.get_resize_ratios()
         pts = [(int(y * r_h), int(x * r_w)) for y, x in pts]
 
-        sw = 5  # Sample width/2
+        sw = 5  # Sample width/2, 5 is pretty okay
 
         pixels = [self.image[y - sw:y + sw, x - sw:x + sw, :] for x, y in pts]
         pixels = np.stack(pixels)
         n, r, c, _ = pixels.shape
-
-        #for image_area in pixels:
-        #    cv2.imshow("Debug", image_area)
-        #    cv2.waitKey(0)
-        #    cv2.destroyWindow("Debug")
 
         pixels = pixels.reshape(n * r * c, 3)
 
@@ -248,3 +240,12 @@ def debug_draw_text(image, text, text_orig=(100, 100)):
     scale = 1
     cv2.putText(image, text, text_orig,
                 cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+
+
+def show_image_areas(areas, n):
+    fig, axs = plt.subplots(1, n, sharey=True)
+    i = 0
+    for image_area in areas:
+        axs[i].imshow(image_area)
+        i += 1
+    plt.show()
