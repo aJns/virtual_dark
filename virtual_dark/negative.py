@@ -169,7 +169,7 @@ class Negative:
         x1, y1, x2, y2 = area
         x1, x2 = order_indeces(x1, x2)
         y1, y2 = order_indeces(y1, y2)
-        image_area = self.image[x1:x2, y1:y2, :]
+        image_area = self.image[y1:y2, x1:x2, :]
 
         red_vals = np.sort(image_area[:, :, 0].ravel())
         green_vals = np.sort(image_area[:, :, 1].ravel())
