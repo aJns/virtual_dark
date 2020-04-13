@@ -3,3 +3,5 @@ venv
 *.pyc
 tags
 output/
+dist/
+virtual_dark.egg-info/

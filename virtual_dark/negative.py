@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import numbers
 import os
-import time
 from pathlib import Path
-
-from virtual_dark import copypasted
-from virtual_dark.user_interface import *
 
 import cv2
 import imutils as imutils
 import matplotlib.pyplot as plt
 import numpy as np
 import rawpy
-
 from PIL import Image
+
+from virtual_dark import copypasted
+from virtual_dark.user_interface import *
 
 
 class Negative:
@@ -184,8 +182,6 @@ class Negative:
         red_range = (red_vals.min(), red_vals.max())
         green_range = (green_vals.min(), green_vals.max())
         blue_range = (blue_vals.min(), blue_vals.max())
-
-        print("Red range: {}\nGreen range: {}\nBlue range: {}".format(red_range, green_range, blue_range))
 
         return red_range, green_range, blue_range
 

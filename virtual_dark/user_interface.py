@@ -74,5 +74,3 @@ def on_mouse(event, x, y, flags, param):
     global mouse_pos
     if event == cv2.EVENT_LBUTTONDOWN:
         mouse_pos.append((x, y))
-
-        print("clicked at: {}".format((x, y)))
