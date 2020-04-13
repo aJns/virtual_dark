@@ -167,15 +167,26 @@ class Negative:
 
     Num = numbers.Number
     NumRange = (Num, Num)
-    Rect = (int, int, int, int)  # x, y, w, h
+    RectPts = (int, int, int, int)  # x1, y1, x2, y2
 
-    def get_color_ranges_in_area(self, area: Rect) -> (NumRange, NumRange, NumRange):
-        x, y, w, h = area
-        image_area = self.image[x:x + w, y:y + h, :]
+    def get_color_ranges_in_area(self, area: RectPts) -> (NumRange, NumRange, NumRange):
+        x1, y1, x2, y2 = area
+        x1, x2 = order_indeces(x1, x2)
+        y1, y2 = order_indeces(y1, y2)
+        image_area = self.image[x1:x2, y1:y2, :]
 
-        red_range = (image_area[:, :, 0].min(), image_area[:, :, 0].max())
-        green_range = (image_area[:, :, 1].min(), image_area[:, :, 1].max())
-        blue_range = (image_area[:, :, 2].min(), image_area[:, :, 2].max())
+        red_vals = np.sort(image_area[:, :, 0].ravel())
+        green_vals = np.sort(image_area[:, :, 1].ravel())
+        blue_vals = np.sort(image_area[:, :, 2].ravel())
+
+        outliers = 1 #int(red_vals.shape[0]/25)
+        red_vals = red_vals[outliers:-outliers]
+        green_vals = green_vals[outliers:-outliers]
+        blue_vals = blue_vals[outliers:-outliers]
+
+        red_range = (red_vals.min(), red_vals.max())
+        green_range = (green_vals.min(), green_vals.max())
+        blue_range = (blue_vals.min(), blue_vals.max())
 
         print("Red range: {}\nGreen range: {}\nBlue range: {}".format(red_range, green_range, blue_range))
 
@@ -184,9 +195,9 @@ class Negative:
     def correct_color_curves(self, red_range: NumRange, green_range: NumRange, blue_range: NumRange) -> Negative:
         img_range = (0, 255)
 
-        red = maprange(self.image[:, :, 0], red_range, img_range).astype(np.uint8)
-        green = maprange(self.image[:, :, 1], green_range, img_range).astype(np.uint8)
-        blue = maprange(self.image[:, :, 2], blue_range, img_range).astype(np.uint8)
+        red = maprange(self.image[:, :, 0].astype(np.float32), red_range, img_range).astype(np.int32).clip(0, 255)
+        green = maprange(self.image[:, :, 1].astype(np.float32), green_range, img_range).astype(np.int32).clip(0, 255)
+        blue = maprange(self.image[:, :, 2].astype(np.float32), blue_range, img_range).astype(np.int32).clip(0, 255)
 
         corrected = np.dstack((red, green, blue)).astype(np.uint8)
 
@@ -202,6 +213,13 @@ class Negative:
         inverted = 255 - self.image
 
         return Negative(inverted, self.name + "-inverted")
+
+
+def order_indeces(i1: int, i2: int) -> (int, int):
+    if i1 > i2:
+        return i2, i1
+    else:
+        return i1, i2
 
 
 def from_path(filepath: str) -> Negative:
@@ -237,9 +255,7 @@ def maprange(s, a, b):
 
 def fully_process_neg(negative) -> Negative:
     centers = negative.find_holes()
-
-    #    white_point = negative.calc_film_white_point(centers)
-    #    print("white_point:", white_point)
+    white_point = negative.calc_film_white_point(centers)
 
     slope, _ = fit_line_through_holes(centers)
     if slope < -1 or slope > 1:
@@ -251,22 +267,20 @@ def fully_process_neg(negative) -> Negative:
         rotated = negative.rotate_according_to_slope(slope)
     del negative
 
-    debug_im = rotated.get_debug_image()
-    rect = (1200, 850, 2300, 1850)
-    x, y, w, h = rect
-    hr, wr = rotated.get_resize_ratios()
-    resized_rect = int(x / wr), int(y / hr), int(w / wr), int(h / hr)
-    p1, p2 = debug_draw_rect(debug_im, resized_rect)
-    x, y = p1
-    w, h = p2[0]-x, p2[1]-y
-    rect = int(x*wr), int(y*hr), int(w*wr), int(h*hr)
-    rr, gr, br = rotated.get_color_ranges_in_area(rect)
-    color_corrected = rotated.correct_color_curves(rr, gr, br)
+    white_balanced = rotated.correct_with_white_point(white_point)
     del rotated
 
-    inverted = color_corrected.invert()
-    del color_corrected
+    inverted = white_balanced.invert()
+    del white_balanced
 
-    return inverted
+    debug_im = inverted.get_debug_image()
+    hr, wr = inverted.get_resize_ratios()
+    p1, p2 = get_user_defined_rect(debug_im)
+    x1, y1 = p1
+    x2, y2 = p2
+    rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
+    rr, gr, br = inverted.get_color_ranges_in_area(rect)
+    color_corrected = inverted.correct_color_curves(rr, gr, br)
+    del inverted
 
-
+    return color_corrected

@@ -51,6 +51,28 @@ def debug_draw_rect(image, rect):
     return p1, p2
 
 
+def get_user_defined_rect(image):
+    global mouse_pos
+    mouse_pos = list()
+    cv2.imshow("Debug", image)
+    cv2.setMouseCallback("Debug", on_mouse)
+
+    while len(mouse_pos) < 2:
+        cv2.waitKey(0)
+
+    color = (255, 0, 255)
+    thickness = 1
+    p1 = mouse_pos.pop(0)
+    p2 = mouse_pos.pop(0)
+    cv2.rectangle(image, p1, p2, color, thickness)
+
+    cv2.imshow("Debug", image)
+    cv2.waitKey(0)
+    cv2.destroyWindow("Debug")
+
+    return p1, p2
+
+
 def show_image_areas(areas, n):
     fig, axs = plt.subplots(1, n, sharey=True)
     i = 0
