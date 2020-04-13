@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import numbers
 import os
+import time
 from pathlib import Path
 
 from virtual_dark import copypasted
+from virtual_dark.user_interface import *
 
 import cv2
 import imutils as imutils
@@ -253,8 +255,11 @@ def fully_process_neg(negative) -> Negative:
     rect = (1200, 850, 2300, 1850)
     x, y, w, h = rect
     hr, wr = rotated.get_resize_ratios()
-    resized_rect = int(x/wr), int(y/hr), int(w/wr), int(h/hr)
-    debug_draw_rect(debug_im, resized_rect)
+    resized_rect = int(x / wr), int(y / hr), int(w / wr), int(h / hr)
+    p1, p2 = debug_draw_rect(debug_im, resized_rect)
+    x, y = p1
+    w, h = p2[0]-x, p2[1]-y
+    rect = int(x*wr), int(y*hr), int(w*wr), int(h*hr)
     rr, gr, br = rotated.get_color_ranges_in_area(rect)
     color_corrected = rotated.correct_color_curves(rr, gr, br)
     del rotated
@@ -265,47 +270,3 @@ def fully_process_neg(negative) -> Negative:
     return inverted
 
 
-def debug_draw_pts(negative, pts, label=""):
-    img = negative.get_debug_image()
-    radius = 4
-    color = (255, 0, 255)
-
-    for p in pts:
-        cv2.circle(img, p, radius, color, thickness=-1)
-
-    if label != "":
-        debug_draw_text(img, label)
-
-    cv2.imshow("Debug", img)
-    cv2.waitKey(0)
-    cv2.destroyWindow("Debug")
-
-
-def debug_draw_text(image, text, text_orig=(100, 100)):
-    color = (255, 0, 255)
-    thickness = 1
-    scale = 1
-    cv2.putText(image, text, text_orig,
-                cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
-
-
-def debug_draw_rect(image, rect):
-    color = (255, 0, 255)
-    thickness = 1
-    x, y, w, h = rect
-    p1 = x, y
-    p2 = x + w, y + h
-    cv2.rectangle(image, p1, p2, color, thickness)
-
-    cv2.imshow("Debug", image)
-    cv2.waitKey(0)
-    cv2.destroyWindow("Debug")
-
-
-def show_image_areas(areas, n):
-    fig, axs = plt.subplots(1, n, sharey=True)
-    i = 0
-    for image_area in areas:
-        axs[i].imshow(image_area)
-        i += 1
-    plt.show()
