@@ -27,28 +27,16 @@ def debug_draw_text(image, text, text_orig=(100, 100)):
 
 
 def debug_draw_rect(image, rect):
-    global mouse_pos
-    mouse_pos = list()
-    cv2.imshow("Debug", image)
-    cv2.setMouseCallback("Debug", on_mouse)
-
-    while len(mouse_pos) < 2:
-        cv2.waitKey(0)
-
     color = (255, 0, 255)
     thickness = 1
     x, y, w, h = rect
-    #    p1 = x, y
-    #    p2 = x + w, y + h
-    p1 = mouse_pos.pop(0)
-    p2 = mouse_pos.pop(0)
+    p1 = x, y
+    p2 = x + w, y + h
     cv2.rectangle(image, p1, p2, color, thickness)
 
     cv2.imshow("Debug", image)
     cv2.waitKey(0)
     cv2.destroyWindow("Debug")
-
-    return p1, p2
 
 
 def get_user_defined_rect(image):
