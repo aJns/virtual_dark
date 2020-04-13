@@ -1,7 +1,7 @@
 import argparse
 import glob
 
-import negative
+from virtual_dark import negative
 
 parser = argparse.ArgumentParser(description="Process negatives")
 

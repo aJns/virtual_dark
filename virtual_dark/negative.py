@@ -136,13 +136,9 @@ class Negative:
         r_m = np.median(r)
         g_m = np.median(g)
         b_m = np.median(b)
-        # r_m = np.mean(r)
-        # g_m = np.mean(g)
-        # b_m = np.mean(b)
 
         white_point = r_m, g_m, b_m
 
-        # white_point = (171.5, 62.0, 26.0) # A pretty good val
         return white_point
 
     def correct_with_white_point(self, whiteRGB: (int, int, int)) -> Negative:
@@ -179,7 +175,7 @@ class Negative:
         green_vals = np.sort(image_area[:, :, 1].ravel())
         blue_vals = np.sort(image_area[:, :, 2].ravel())
 
-        outliers = 1 #int(red_vals.shape[0]/25)
+        outliers = 1  # int(red_vals.shape[0]/25)
         red_vals = red_vals[outliers:-outliers]
         green_vals = green_vals[outliers:-outliers]
         blue_vals = blue_vals[outliers:-outliers]
@@ -253,10 +249,7 @@ def maprange(s, a, b):
     return b1 + (s - a1) * ((b2 - b1) / (a2 - a1))
 
 
-def fully_process_neg(negative) -> Negative:
-    centers = negative.find_holes()
-    white_point = negative.calc_film_white_point(centers)
-
+def get_rotated_negative(negative, centers):
     slope, _ = fit_line_through_holes(centers)
     if slope < -1 or slope > 1:
         rot90 = negative.rotate_degrees(-90)
@@ -265,6 +258,27 @@ def fully_process_neg(negative) -> Negative:
         rotated = rot90.rotate_according_to_slope(slope)
     else:
         rotated = negative.rotate_according_to_slope(slope)
+
+    return rotated
+
+
+def get_color_corrected_negative(negative):
+    debug_im = negative.get_debug_image()
+    hr, wr = negative.get_resize_ratios()
+    p1, p2 = get_user_defined_rect(debug_im)
+    x1, y1 = p1
+    x2, y2 = p2
+    rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
+    rr, gr, br = negative.get_color_ranges_in_area(rect)
+    color_corrected = negative.correct_color_curves(rr, gr, br)
+    return color_corrected
+
+
+def fully_process_neg(negative) -> Negative:
+    centers = negative.find_holes()
+    white_point = negative.calc_film_white_point(centers)
+
+    rotated = get_rotated_negative(negative, centers)
     del negative
 
     white_balanced = rotated.correct_with_white_point(white_point)
@@ -273,14 +287,7 @@ def fully_process_neg(negative) -> Negative:
     inverted = white_balanced.invert()
     del white_balanced
 
-    debug_im = inverted.get_debug_image()
-    hr, wr = inverted.get_resize_ratios()
-    p1, p2 = get_user_defined_rect(debug_im)
-    x1, y1 = p1
-    x2, y2 = p2
-    rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
-    rr, gr, br = inverted.get_color_ranges_in_area(rect)
-    color_corrected = inverted.correct_color_curves(rr, gr, br)
+    color_corrected = get_color_corrected_negative(inverted)
     del inverted
 
     return color_corrected
