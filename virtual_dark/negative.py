@@ -35,9 +35,10 @@ class Negative:
         image2show = self.image.copy()
         max_width = 1000
 
-        if np.ma.size(self.image, 0) > max_width:
-            image2show = imutils.resize(self.image, width=1000).copy()
-            self.reduced_h, self.reduced_w, _ = image2show.shape
+        if np.ma.size(self.image, 1) > max_width:
+            image2show = imutils.resize(image2show, width=1000).copy()
+
+        self.reduced_h, self.reduced_w, _ = image2show.shape
 
         r, g, b = cv2.split(image2show)
         image2show = cv2.merge((b, g, r))
@@ -210,6 +211,12 @@ class Negative:
 
         return Negative(inverted, self.name + "-inverted")
 
+    def cropped_to(self, area: RectPts):
+        x1, y1, x2, y2 = area
+        x1, x2 = order_indeces(x1, x2)
+        y1, y2 = order_indeces(y1, y2)
+        return Negative(self.image[y1:y2, x1:x2, :], self.name + "-cropped")
+
 
 def order_indeces(i1: int, i2: int) -> (int, int):
     if i1 > i2:
@@ -264,6 +271,7 @@ def get_rotated_negative(negative, centers):
 
 def get_color_corrected_negative(negative):
     debug_im = negative.get_debug_image()
+    debug_draw_text(debug_im, "Select color correction area points")
     hr, wr = negative.get_resize_ratios()
     p1, p2 = get_user_defined_rect(debug_im)
     x1, y1 = p1
@@ -272,6 +280,17 @@ def get_color_corrected_negative(negative):
     rr, gr, br = negative.get_color_ranges_in_area(rect)
     color_corrected = negative.correct_color_curves(rr, gr, br)
     return color_corrected
+
+
+def get_cropped_negative(negative):
+    debug_im = negative.get_debug_image()
+    debug_draw_text(debug_im, "Select crop area points")
+    hr, wr = negative.get_resize_ratios()
+    p1, p2 = get_user_defined_rect(debug_im)
+    x1, y1 = p1
+    x2, y2 = p2
+    rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
+    return negative.cropped_to(rect)
 
 
 def fully_process_neg(negative) -> Negative:
@@ -287,7 +306,10 @@ def fully_process_neg(negative) -> Negative:
     inverted = white_balanced.invert()
     del white_balanced
 
-    color_corrected = get_color_corrected_negative(inverted)
+    cropped = get_cropped_negative(inverted)
     del inverted
+
+    color_corrected = get_color_corrected_negative(cropped)
+    del cropped
 
     return color_corrected
