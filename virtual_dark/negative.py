@@ -79,7 +79,7 @@ class Negative:
         resized = imutils.resize(self.image, width=1000)
         self.reduced_h, self.reduced_w, _ = resized.shape
 
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
         blurred = cv2.blur(gray, (5, 5))
         thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY)[1]
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -278,18 +278,75 @@ def get_color_corrected_negative(negative):
     return color_corrected
 
 
-def get_cropped_negative(negative):
+def get_cropped_negative(negative: Negative):
     debug_im = negative.get_debug_image()
     debug_draw_text(debug_im, "Select crop area points")
-    hr, wr = negative.get_resize_ratios()
     p1, p2 = get_user_defined_rect(debug_im)
+    hr, wr = negative.get_resize_ratios()
     x1, y1 = p1
     x2, y2 = p2
     rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
     return negative.cropped_to(rect)
 
 
-def fully_process_neg(negative) -> Negative:
+def find_film_frames(negative: Negative):
+    resized = negative.get_debug_image()
+    im_h, im_w, _ = resized.shape
+
+    gray = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
+    threshold_val = calc_threshold(gray)
+    blurred = cv2.blur(gray, (5, 5))
+    thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY)[1]
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    c_rects = map(cv2.boundingRect, contours)
+
+    center_y, center_x = im_h / 2, im_w / 2
+
+    # TODO: Since there might be multiple contours in the center, pick the largest that is still smaller than some percentage of the whole image
+    # Or pick a contour that's most rectangular, is the area ~= the area of the bounding rect
+    p1 = 0, 0
+    p2 = 0, 0
+    for rect in c_rects:
+        x, y, w, h = rect
+
+        if x < center_x - 100 and center_x + 100 < x + w:
+            if y < center_y - 100 and center_y + 100 < y + h:
+                p1 = x - 20, y - 20
+                p2 = x + w + 20, y + h + 20
+
+    color = (0, 255, 0)
+    thickness = 1
+    print("Contour count: {}".format(len(contours)))
+    cv2.drawContours(resized, contours, -1, color=color, thickness=thickness)
+    cv2.imshow("Thresh", thresh)
+
+    debug_draw_rect(resized, (p1, p2))
+
+    #    cv2.waitKey(0)
+    cv2.destroyWindow("Thresh")
+
+    return p1, p2
+
+
+def calc_threshold(image: np.ndarray) -> int:
+    im_vals = image.flatten()
+    low_vals = im_vals[im_vals < 50]
+    thresh = max(20, np.median(low_vals) * 2)
+    print("Threshold: {}".format(thresh))
+    return thresh
+
+
+def auto_crop(negative: Negative) -> Negative:
+    p1, p2 = find_film_frames(negative)
+    hr, wr = negative.get_resize_ratios()
+    x1, y1 = p1
+    x2, y2 = p2
+    rect = int(x1 * wr), int(y1 * hr), int(x2 * wr), int(y2 * hr)
+    return negative.cropped_to(rect)
+
+
+def fully_process_neg(negative, manual_crop, manual_cca) -> Negative:
     centers = negative.find_holes()
     white_point = negative.calc_film_white_point(centers)
 
@@ -299,13 +356,16 @@ def fully_process_neg(negative) -> Negative:
     white_balanced = rotated.correct_with_white_point(white_point)
     del rotated
 
-    inverted = white_balanced.invert()
+    if manual_crop:
+        cropped = get_cropped_negative(white_balanced)
+    else:
+        cropped = auto_crop(white_balanced)
     del white_balanced
 
-    cropped = get_cropped_negative(inverted)
-    del inverted
-
-    color_corrected = get_color_corrected_negative(cropped)
+    inverted = cropped.invert()
     del cropped
 
-    return color_corrected
+    #    color_corrected = get_color_corrected_negative(cropped)
+    #    del cropped
+
+    return inverted  # color_corrected

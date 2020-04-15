@@ -26,12 +26,10 @@ def debug_draw_text(image, text, text_orig=(100, 100)):
                 cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
 
 
-def debug_draw_rect(image, rect):
+def debug_draw_rect(image, RectPts):
     color = (255, 0, 255)
     thickness = 1
-    x, y, w, h = rect
-    p1 = x, y
-    p2 = x + w, y + h
+    p1, p2 = RectPts
     cv2.rectangle(image, p1, p2, color, thickness)
 
     cv2.imshow("Debug", image)

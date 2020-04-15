@@ -7,12 +7,17 @@ parser = argparse.ArgumentParser(description="Process negatives")
 
 parser.add_argument("--output_dir", metavar="out_dir", type=str, nargs="?", help="Output directory", default="output")
 parser.add_argument("--show_after", help="Whether to show image after processing", action="store_true")
+parser.add_argument("--manual_crop", "--mcrop", help="Whether to let the user crop the image", action="store_true")
+parser.add_argument("--manual_color_correct_area", "--mcca", help="Whether to let the user select the area from which "
+                                                                "the color correction is calculated", action="store_true")
 parser.add_argument("input_imgs", metavar="img", type=str, nargs="+", help="Input images")
 
 args = parser.parse_args()
 input_images = args.input_imgs
 output_dir = args.output_dir
 show_after = args.show_after
+manual_crop = args.manual_crop
+manual_cca = args.manual_color_correct_area
 
 input_images = map(glob.glob, input_images)
 input_images = [item for sublist in input_images for item in sublist]  # flatten
@@ -26,8 +31,8 @@ curr_image = 1
 for image in input_images:
     print("Processing: {}".format(image), "{}/{} images".format(curr_image, total_images))
     neg = negative.from_path(image)
-    neg = negative.fully_process_neg(neg)
+    neg = negative.fully_process_neg(neg, manual_crop, manual_cca)
     curr_image += 1
-    if show_after:
-        neg.show()
-    neg.save_to_dir(output_dir)
+#    if show_after:
+    neg.show()
+#    neg.save_to_dir(output_dir)
